@@ -1,3 +1,4 @@
+import asyncio
 import discord
 import pandas as pd
 import os
@@ -37,9 +38,9 @@ def save_party_gold():
     gold_df = gold_df.round(2)
     gold_df.fillna(0,inplace=True)
     gold_df.to_csv('partygold.txt')
-    print('locals:', locals())
-    print('-'*23)
-    print('globals',globals())
+    # print('locals:', locals())
+    # print('-'*23)                 #something was messy with local/global dataframe. seems fixed.
+    # print('globals',globals())
     return gold_df
 
 @client.event
@@ -51,6 +52,7 @@ async def on_message(message):
     if message.author == client.user:
         return
     if message.content.startswith('$'):
+        #DICEROLLS
         if message.content.startswith('$roll'):
             dice_chosen = message.content.split(' ')[1]
             if dice_chosen == 'stats':
@@ -78,11 +80,15 @@ async def on_message(message):
                     rolls.append(randint(1,dice_roll[1]))
                 dice_total = sum(rolls)
                 await message.channel.send(f'Rolling {dice_chosen}: {dice_total} ( {rolls} )')
+
+        #JLAW GIF - EXPAND TO MORE GIFS?
         elif message.content.startswith('$ohyeahsure'):
             reply_msg = await message.channel.send(f'https://media1.tenor.com/images/f48d05dff1ce06758fe42a5cbc26d33c/tenor.gif?itemid=4486668')
             await reply_msg.add_reaction('👍')
             await reply_msg.add_reaction('👎')
             await message.channel.send(message.author)
+
+        #CALENDAR COMMANDS
         elif message.content.startswith('$cal'):
             calendar_command = message.content.split()[1]
             if calendar_command == 'addevent':
@@ -92,15 +98,26 @@ async def on_message(message):
                 if len(event_to_add) == 3:
                     message_reply += f'\n**Event repeats**: {event_to_add[2]}'
                 await message.channel.send(message_reply)
+
+        #HELP SECTION
         elif message.content.startswith('$help'):
-            await message.channel.send(f'**Commands**:\n$roll ["stats"/#d#] for dice rolls\n'
-                                       f'$cal addevent ([name],[time],*[repeats: arg: weekly - not yet implemented]*)'
-                                       f'$g'
-                                       f'  total: displays all gold totals'
-                                       f'  partyadd/partyspend [#p#g#e#s#c]: splits amount equally between all members'
-                                       f'  playeradd/playerspend [name] [#p#g#e#s#c]: adds/subtracts from character gold'
-                                       f'  lookup [string]: returns all transactions with string in Notes'
-                                       f'  lookupdate [date string]: returns all transactions made on date')
+            if ' ' in message.content:
+                if message.content.split()[1] == '$g':
+                    await message.channel.send(f'$g [arg(s)]:\n'
+                                               f'  total: displays all gold totals\n'
+                                               f'  partyadd/partyspend [#p#g#e#s#c]: splits amount equally between all members\n'
+                                               f'  playeradd/playerspend [name] [#p#g#e#s#c]: adds/subtracts from character\n'
+                                               f'  lookup [string]: returns all transactions with string in Notes (looks messy!)\n'
+                                               f'  lookupdate [date string]: returns all transactions made on specific date (looks messy!)')
+                elif message.content.split()[1] == '$cal':
+                    await message.channel.send(f'$cal [arg(s)]:\n'
+                                               f'  addevent [name] [time] [*repeat:weekly - optional] to add an event')
+            else:
+                await message.channel.send(f'**Commands**:\n$roll ["stats"/#d#] for dice rolls\n'
+                                           f'$cal: type $help $cal for more info\n'# addevent ([name],[time],*[repeats: arg: weekly - not yet implemented]*)'
+                                           f'$g: type $help $g for more info')
+
+        #GOLD COMMANDS
         elif message.content.startswith('$g'):
             gold_command = message.content[3:]
             if gold_command.startswith('party'):
@@ -128,10 +145,29 @@ async def on_message(message):
                         each_gets *= -1
                     if dmisevil:
                         message_reply += f'\nAnd the DM is evil for using electrum'
-                    await message.channel.send(message_reply)
-                    gold_df.iloc[0,[0,1,2,3,4]] += each_gets
-                    gold_df.loc[len(gold_df)] = [each_gets,each_gets,each_gets,each_gets,each_gets,date.today().strftime('%Y/%m/%d')+': '+comment]
-                    save_party_gold()
+                    message_reply += f'\nClick 👍 to confirm, 👎 to cancel'
+                    reply_msg = await message.channel.send(message_reply)
+                    await reply_msg.add_reaction('👍')
+                    await reply_msg.add_reaction('👎')
+
+                    def reaction_check(reaction,user):
+                        return (user == message.author) and (str(reaction.emoji) == '👍' or str(reaction.emoji) == '👎') and (reaction.message == reply_msg)
+                    try:
+                        reaction, user = await client.wait_for('reaction_add', timeout=30.0, check=reaction_check)
+                    except asyncio.TimeoutError:
+                        await message.channel.send('❌ - Sorry, request timed out')
+                    else:
+                        print(reaction)
+                        if reaction.emoji == '👍':
+                            gold_df.iloc[0, [0, 1, 2, 3, 4]] += each_gets
+                            gold_df.loc[len(gold_df)] = [each_gets, each_gets, each_gets, each_gets, each_gets,
+                                                         date.today().strftime('%Y/%m/%d') + ': ' + comment]
+                            save_party_gold()
+
+                            await message.channel.send(f'✅ - Successfully added entry ({money_amount}')
+                        elif reaction.emoji == '👎':
+                            await message.channel.send(f'Entry ({money_amount}) not added')
+
 
             elif gold_command.startswith('player'):
                 command,player,amount = gold_command.casefold().split(' ',2)
@@ -142,14 +178,36 @@ async def on_message(message):
                     spent_money,dmisevil = parse_currency(amount)
                     if command == 'playeradd':
                         spent_money *= -1
-                        await message.channel.send(f'{player.capitalize()} received {amount}')
+                        message_reply = f'{player.capitalize()} received {amount}'
+                        # await message.channel.send(f'{player.capitalize()} received {amount}')
                     elif command == 'playerspend' or command == 'playerspent':
-                        await message.channel.send(f'{player.capitalize()} spent {amount}')
-                    gold_df.at['total',player] -= spent_money
-                    gold_df.loc[len(gold_df),[player.casefold(),'Notes']] = [-spent_money,date.today().strftime('%Y/%m/%d')+': '+comment]
-                    save_party_gold()
+                        message_reply = f'{player.capitalize()} spent {amount}'
+                        # await message.channel.send(f'{player.capitalize()} spent {amount}')
+
+                    message_reply += f'\nClick 👍 to confirm, 👎 to cancel'
+                    reply_msg = await message.channel.send(message_reply)
+                    await reply_msg.add_reaction('👍')
+                    await reply_msg.add_reaction('👎')
+
+                    def reaction_check(reaction,user):
+                        return (user == message.author) and (str(reaction.emoji) == '👍' or str(reaction.emoji) == '👎') and (reaction.message == reply_msg)
+
+                    try:
+                        reaction, user = await client.wait_for('reaction_add', timeout=30.0, check=reaction_check)
+                    except asyncio.TimeoutError:
+                        await message.channel.send('❌ - Sorry, request timed out')
+                    else:
+                        print(reaction)
+                        if reaction.emoji == '👍':
+                            gold_df.at['total', player] -= spent_money
+                            gold_df.loc[len(gold_df), [player.casefold(), 'Notes']] = [-spent_money,f'{date.today().strftime("%Y/%m/%d")}: {comment}']
+                            save_party_gold()
+
+                            await message.channel.send(f'✅ - Successfully added entry ({amount})')
+                        elif reaction.emoji == '👎':
+                            await message.channel.send(f'Entry ({amount}) not added')
                 else:
-                    await message.channel.send('Name not found, try again.')
+                    await message.channel.send(f'{player} not found, try again.')
 
             elif gold_command.startswith('total'):
                 message_reply = ''
@@ -174,7 +232,7 @@ async def on_message(message):
                 else:
                     await message.channel.send(result_gold_df)
 
-    if 'this is america' in message.content.lower():
+    if 'this is america' in message.content.casefold():
         await message.channel.send('https://www.youtube.com/watch?v=YUWq_aBiE_s')
 
 client.run(TOKEN)
