@@ -157,7 +157,7 @@ async def on_message(message):
                     except asyncio.TimeoutError:
                         await message.channel.send('❌ - Sorry, request timed out')
                     else:
-                        print(reaction)
+                        # print(reaction)
                         if reaction.emoji == '👍':
                             gold_df.iloc[0, [0, 1, 2, 3, 4]] += each_gets
                             gold_df.loc[len(gold_df)] = [each_gets, each_gets, each_gets, each_gets, each_gets,
@@ -178,10 +178,10 @@ async def on_message(message):
                     spent_money,dmisevil = parse_currency(amount)
                     if command == 'playeradd':
                         spent_money *= -1
-                        message_reply = f'{player.capitalize()} received {amount}'
+                        message_reply = f'{player.title()} received {amount}'
                         # await message.channel.send(f'{player.capitalize()} received {amount}')
                     elif command == 'playerspend' or command == 'playerspent':
-                        message_reply = f'{player.capitalize()} spent {amount}'
+                        message_reply = f'{player.title()} spent {amount}'
                         # await message.channel.send(f'{player.capitalize()} spent {amount}')
 
                     message_reply += f'\nClick 👍 to confirm, 👎 to cancel'
@@ -197,7 +197,7 @@ async def on_message(message):
                     except asyncio.TimeoutError:
                         await message.channel.send('❌ - Sorry, request timed out')
                     else:
-                        print(reaction)
+                        # print(reaction)
                         if reaction.emoji == '👍':
                             gold_df.at['total', player] -= spent_money
                             gold_df.loc[len(gold_df), [player.casefold(), 'Notes']] = [-spent_money,f'{date.today().strftime("%Y/%m/%d")}: {comment}']
@@ -213,7 +213,7 @@ async def on_message(message):
                 message_reply = ''
                 for i in range(5):
                     total_gold = gold_df.iloc[0,i]
-                    message_reply += f'{gold_df.columns[i].capitalize()}: {int(total_gold)}g {int(total_gold*10%10)}s {int(total_gold*100%10)}c\n'
+                    message_reply += f'{gold_df.columns[i].title()}: {int(total_gold)}g {int(total_gold*10%10)}s {int(total_gold*100%10)}c\n'
                 await message.channel.send(message_reply)
 
             elif gold_command.startswith('lookupdate'):
