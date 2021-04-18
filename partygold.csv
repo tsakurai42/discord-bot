@@ -1,0 +1,11 @@
+,kali,ekko,glob,ix,il'kesh,Notes,date,user
+total,211.83,206.93,263.6,210.93,248.6,None,None,None
+1,1.0,1.0,1.0,1.0,1.0,testing single quote in name,2021/03/27,None
+2,1.0,1.0,1.0,1.0,1.0,testing single quote,2021/03/27,None
+12,10.0,10.0,10.0,10.0,10.0,testinguser,2021/04/18,Cherry#1094
+4,10.0,10.0,10.0,10.0,10.0,date column added,2021/04/18,Cherry#1094
+5,0.0,0.0,0.0,-5.0,0.0,0,2021/04/18,Cherry#1094
+6,10.0,10.0,10.0,10.0,10.0,testingcsv,2021/04/18,Cherry#1094
+7,10.0,10.0,10.0,10.0,10.0,testingcsv2,2021/04/18,Cherry#1094
+8,-50.0,0.0,0.0,0.0,0.0,testing,2021/04/18,Cherry#1094
+9,50.0,0.0,0.0,0.0,0.0,doing nothing,2021/04/18,Cherry#1094
