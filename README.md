@@ -1,6 +1,6 @@
 # discord-bot
 
-##Current Features
+## Current Features
 
 1. Party gold tracking
    - partyadd/partyspend to split evenly
@@ -13,7 +13,7 @@
    - stats to roll 4d6k3
 3. Random gifs and videos triggered by certain words or phrases, because why not.
 
-##Future additions
+## Future additions
 
 1. Move from csv storage to something better? Not needed really for just a personal project but it just feels better.
 2. Capability to track gold for multiple parties - would require a total rehaul of data formatting, since currently character names are dataframe columns and several things are hard coded for 5 columns since my party has 5 players.
