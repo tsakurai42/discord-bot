@@ -1,0 +1,5 @@
+item,quantity
+used rapier,1.0
+some jewelry,1.0
+some gemstones,1.0
+residuum crystals,3.0

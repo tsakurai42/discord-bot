@@ -6,7 +6,7 @@ import re
 from dateutil.parser import parse
 from random import randint
 from dotenv import load_dotenv
-from datetime import date
+from datetime import date, timedelta
 
 client = discord.Client()
 load_dotenv()
@@ -17,38 +17,16 @@ playerconversion = {
     132956251993800705: 'ix',
     233814733688537098: "il'kesh",
     358065918405771274: 'ekko',
-    338219617015300096: 'glob'
+    338219617015300096: 'glob',
+    810158366583291934: 'dm'
 }
+
+trusted_editors = [130879737437487105,132956251993800705]
+
+partymembers = ['kali', 'ix', "il'kesh", 'ekko', 'glob']
 
 
 def parse_currency(currency):
-    # attempt 1
-    # platinum = gold = electrum = silver = copper = 0
-    # if 'p' in currency:
-    #     platinum, _, currency = currency.rpartition('p')
-    # if 'g' in currency:
-    #     gold, _, currency = currency.rpartition('g')
-    # if 'e' in currency:
-    #     electrum, _, currency = currency.rpartition('e')
-    #     dmisevil = True
-    # else:
-    #     dmisevil = False
-    # if 's' in currency:
-    #     silver, _, currency = currency.rpartition('s')
-    # if 'c' in currency:
-    #     copper, _, _ = currency.rpartition('c')
-    # total = int(platinum) * 10 + int(gold) + int(electrum) / 2 + int(silver) / 10 + int(copper) / 100
-
-    # attempt 2
-    # dmisevil = True if 'e' in currency else False
-    # platinum, _, currency = currency.rpartition('p')
-    # gold, _, currency = currency.rpartition('g')
-    # electrum, _, currency = currency.rpartition('e')
-    # silver, _, currency = currency.rpartition('s')
-    # copper, _, _ = currency.rpartition('c')
-    # total = int(platinum or 0) * 10 + int(gold or 0) + int(electrum or 0) / 2 + int(silver or 0) / 10 + int(copper or 0) / 100
-
-    # attempt 3
     money = {'p': 0, 'g': 0, 'e': 0, 's': 0, 'c': 0}
     dmisevil = True if 'e' in currency else False
     currency_split = re.split('([pgesc])', currency)
@@ -75,14 +53,30 @@ def save_party_gold():
 
 @client.event
 async def on_ready():
-    print('We have logged in as {0.user}'.format(client))
+    print(f'We have logged in as {client.user}')
 
 
 @client.event
 async def on_message(message):
+    if client.user == 'cherrybot#1685' and message.channel.id == 833443954359271495:  # if real client and in testing private channel, don't do anything. otherwise (real bot in real channel or test bot in private channel) it will work
+        return
     if message.author == client.user:
         return
     if message.content.startswith('$'):
+
+        def reaction_check(reaction, user):
+            return (user == message.author) and (
+                    str(reaction.emoji) == '👍' or str(reaction.emoji) == '👎') and (
+                           reaction.message == reply_msg)
+
+        # if message.content.startswith('$test'):
+            # id = 130879737437487105  # User Id
+            # member = client.get_guild(616442390734962709).get_member(id)
+            # print(member)
+
+            # namename = await client.fetch_user(int('130879737437487105'))
+            # print(namename)
+
         # DICEROLLS
         if message.content.startswith('$roll'):
             dice_chosen = message.content.split(' ')[1]
@@ -111,11 +105,78 @@ async def on_message(message):
         elif message.content.startswith('$ohyeahsure'):
             reply_msg = await message.channel.send(
                 f'https://media1.tenor.com/images/f48d05dff1ce06758fe42a5cbc26d33c/tenor.gif?itemid=4486668')
-            # await reply_msg.add_reaction('👍')
-            # await reply_msg.add_reaction('👎')
-            # await message.channel.send(message.author)
 
         # CALENDAR COMMANDS
+        elif message.content.startswith('$afk'):
+            afk_df = pd.read_csv('afk.txt', index_col=0)
+            if message.content.startswith('$afkcancel'):
+                cal_date = message.content.split()
+                parsed_cal_date = parse(cal_date[1])
+                if parsed_cal_date.weekday() != 5:
+                    await message.channel.send(f"That's not a Saturday")
+                    return
+                parsed_cal_date = parsed_cal_date.strftime('%Y-%m-%d')
+                afk_list = afk_df.loc[parsed_cal_date, 'afk'].split(',')
+                if str(message.author.nick) in afk_list:
+                    afk_list.remove(str(message.author.nick))
+                    if not afk_list:
+                        afk_df.drop(index=parsed_cal_date,inplace=True)
+                    else:
+                        afk_df.loc[parsed_cal_date, 'afk'] = ','.join(afk_list)
+                    await message.channel.send(f'Canceled your afk for {parsed_cal_date}')
+                    afk_df.to_csv('afk.txt')
+            elif message.content.startswith('$afk '):
+                cal_date = message.content.split()
+                parsed_cal_date = parse(cal_date[1])
+                if parsed_cal_date.weekday() != 5:
+                    await message.channel.send(f"That's not a Saturday")
+                    return
+                parsed_cal_date = parsed_cal_date.strftime('%Y-%m-%d')
+                if parsed_cal_date in afk_df.index:
+                    if str(message.author.nick) in afk_df.loc[parsed_cal_date, 'afk']:
+                        await message.channel.send(f'You are already marked as gone that day ({parsed_cal_date}).')
+                        return
+                    else:
+                        afk_df.loc[parsed_cal_date,'afk'] += f',{message.author.nick}'
+                else:
+                    afk_df.loc[parsed_cal_date,'afk'] = message.author.nick
+                await message.channel.send(f'Ok, you are gone on {parsed_cal_date}')
+                afk_df.to_csv('afk.txt')
+            elif message.content.startswith('$afklist'):
+                saturday = date.today() + timedelta((5 - date.today().weekday()) % 7)
+                month_of_afks = []
+                for i in range(0,28,7):
+                    if (saturday+timedelta(i)).strftime('%Y-%m-%d') in afk_df.index:
+                        month_of_afks.append((saturday+timedelta(i)).strftime('%Y-%m-%d'))
+                if month_of_afks:
+                    await message.channel.send(f'**AFK list for the next month**\n'
+                                               f'```{afk_df.loc[month_of_afks]}```')
+
+
+        elif message.content.startswith('$whendoweplaynext'):
+            afk_df = pd.read_csv('afk.txt', index_col=0, dtype={'afk':str})
+            saturday = date.today() + timedelta((5 - date.today().weekday()) % 7)
+            found_date = False
+            while not found_date:
+                if saturday.strftime('%Y-%m-%d') in afk_df.index:
+                    afk_str = afk_df.loc[saturday.strftime('%Y-%m-%d'), 'afk']
+                    if ',' in afk_str:
+                        afk_list = afk_str.split(',')
+                    else:
+                        afk_list = [afk_str]
+                    if len(afk_list) > 1:
+                        await message.channel.send(f'More than 1 person is gone on {saturday} ({",".join(afk_list)})')
+                        saturday = saturday + timedelta(7)
+                    elif '810158366583291934' in afk_df.loc[saturday.strftime('%Y-%m-%d'),'afk']:
+                        await message.channel.send(f'Hard to play without a DM!')
+                        saturday = saturday + timedelta(7)
+                    else:
+                        found_date = True
+                else:
+                    found_date = True
+            await message.channel.send(f'Next session should be on {saturday}, {(saturday - date.today()).days} days away\n'
+                                       f'(not a guarantee this is accurate)')
+
         elif message.content.startswith('$cal'):
             calendar_command = message.content.split()[1]
             if calendar_command == 'addevent':
@@ -184,11 +245,6 @@ async def on_message(message):
                     await reply_msg.add_reaction('👍')
                     await reply_msg.add_reaction('👎')
 
-                    def reaction_check(reaction, user):
-                        return (user == message.author) and (
-                                    str(reaction.emoji) == '👍' or str(reaction.emoji) == '👎') and (
-                                           reaction.message == reply_msg)
-
                     try:
                         reaction, user = await client.wait_for('reaction_add', timeout=30.0, check=reaction_check)
                     except asyncio.TimeoutError:
@@ -198,7 +254,7 @@ async def on_message(message):
                             gold_df.iloc[0, [0, 1, 2, 3,
                                              4]] += each_gets  # add to totals; at some point change to "add the same amount to each of the named party members
                             gold_df.loc[len(gold_df)] = [each_gets, each_gets, each_gets, each_gets, each_gets,
-                                                         comment, date.today().strftime('%Y/%m/%d'),
+                                                         comment, date.today().strftime('%Y-%m-%d'),
                                                          message.author]  # add new entry in ledger
                             save_party_gold()
 
@@ -238,11 +294,6 @@ async def on_message(message):
                     await reply_msg.add_reaction('👍')
                     await reply_msg.add_reaction('👎')
 
-                    def reaction_check(reaction, user):
-                        return (user == message.author) and (
-                                    str(reaction.emoji) == '👍' or str(reaction.emoji) == '👎') and (
-                                           reaction.message == reply_msg)
-
                     try:
                         reaction, user = await client.wait_for('reaction_add', timeout=30.0, check=reaction_check)
                     except asyncio.TimeoutError:
@@ -252,7 +303,7 @@ async def on_message(message):
                             gold_df.at['total', player] -= spent_money
                             gold_df.loc[len(gold_df), [player, 'Notes', 'date', 'user']] = [-spent_money, comment,
                                                                                             date.today().strftime(
-                                                                                                "%Y/%m/%d"),
+                                                                                                "%Y-%m-%d"),
                                                                                             message.author]
                             save_party_gold()
 
@@ -272,16 +323,15 @@ async def on_message(message):
                         await message.channel.send('Bad currency string, try again. Only p,g,e,s,c are allowed')
                         return
                     else:
+                        total_gold, _ = parse_currency(command_split[2])
+                        if total_gold > gold_df.loc['total', command_split[0]]:
+                            await message.channel.send('Cannot give more money than you have')
+                            return
                         message_reply = f'{command_split[0].title()} giving {command_split[1].title()} {command_split[2]}' \
                                         f'\nClick 👍 to confirm, 👎 to cancel'
                         reply_msg = await message.channel.send(message_reply)
                         await reply_msg.add_reaction('👍')
                         await reply_msg.add_reaction('👎')
-
-                        def reaction_check(reaction, user):
-                            return (user == message.author) and (
-                                    str(reaction.emoji) == '👍' or str(reaction.emoji) == '👎') and (
-                                           reaction.message == reply_msg)
 
                         try:
                             reaction, user = await client.wait_for('reaction_add', timeout=30.0, check=reaction_check)
@@ -289,11 +339,10 @@ async def on_message(message):
                             await message.channel.send('❌ - Sorry, request timed out')
                         else:
                             if reaction.emoji == '👍':
-                                total_gold, _ = parse_currency(command_split[2])
                                 gold_df.loc[
                                     len(gold_df), [command_split[0], command_split[1], 'Notes', 'date', 'user']] = [
                                     -total_gold, total_gold, ' '.join(command_split[3:]),
-                                    date.today().strftime('%Y/%m/%d'), message.author]
+                                    date.today().strftime('%Y-%m-%d'), message.author]
                                 gold_df.loc['total', command_split[0]] -= total_gold
                                 gold_df.loc['total', command_split[1]] += total_gold
                                 save_party_gold()
@@ -311,7 +360,7 @@ async def on_message(message):
 
             elif gold_command.startswith('lookupdate'):
                 lookup_date = gold_command[11:]
-                parsed_lookup_date = parse(lookup_date).strftime('%Y/%m/%d')
+                parsed_lookup_date = parse(lookup_date).strftime('%Y-%m-%d')
                 result_gold_df = gold_df.loc[gold_df['date'].str.contains(parsed_lookup_date)]
                 if result_gold_df.empty:
                     await message.channel.send('No Results Found')
@@ -326,6 +375,91 @@ async def on_message(message):
                 else:
                     await message.channel.send(f'```{result_gold_df.drop(columns="user")}```')
 
+        elif message.content.startswith('$lootstatus'):
+            loot_df = pd.read_csv('loot.txt',index_col='item',dtype={'quantity':int})
+            loot_df.sort_index(inplace=True)
+            await message.channel.send(f'https://i.imgur.com/9bXloIu.mp4')
+            await message.channel.send(f'```{loot_df}```')
+
+        elif message.content.startswith('$lootadd'):
+            if message.author.id not in trusted_editors:
+                return
+            loot_df = pd.read_csv('loot.txt',index_col='item')
+            commands = message.content.split()
+            if commands[-1] == 'all':   #no reason to loot add "all" of anything, so assume it's a mistake and pop it off
+                commands.pop()
+            if commands[-1].isnumeric():
+                quantity_specified = True
+                item_name = ' '.join(commands[1:-1])
+            else:
+                quantity_specified = False
+                item_name = ' '.join(commands[1:])
+
+            if item_name in loot_df.index:
+                if quantity_specified:
+                    loot_df.loc[item_name,'quantity'] += int(commands[-1])
+                else:
+                    loot_df.loc[item_name, 'quantity'] += 1
+            else:
+                if quantity_specified:
+                    loot_df.loc[item_name,'quantity'] = int(commands[-1])
+                else:
+                    loot_df.loc[item_name,'quantity'] = 1
+            loot_df.to_csv('loot.txt')
+
+        elif message.content.startswith('$lootremove'):
+            if message.author.id not in trusted_editors:
+                return
+            loot_df = pd.read_csv('loot.txt',index_col='item')
+            commands = message.content.split()
+            remove_all = False
+            if commands[-1] == 'all':
+                remove_all = True
+                item_name = ' '.join(commands[1:-1])
+            elif commands[-1].isnumeric():
+                quantity_specified = True
+                item_name = ' '.join(commands[1:-1])
+            else:
+                quantity_specified = False
+                item_name = ' '.join(commands[1:])
+
+            message_reply = f'Removing {"all of" if remove_all else commands[-1] if quantity_specified else "one"} {item_name}' \
+                            f'\nClick 👍 to confirm, 👎 to cancel'
+            reply_msg = await message.channel.send(message_reply)
+            await reply_msg.add_reaction('👍')
+            await reply_msg.add_reaction('👎')
+
+            try:
+                reaction, user = await client.wait_for('reaction_add', timeout=30.0, check=reaction_check)
+            except asyncio.TimeoutError:
+                await message.channel.send('❌ - Sorry, request timed out')
+            else:
+                if reaction.emoji == '👍':
+                    if item_name in loot_df.index:
+                        if remove_all:
+                            loot_df.drop(index=item_name, inplace=True)
+                        else:
+                            if quantity_specified:
+                                if loot_df.loc[item_name, 'quantity'] < int(commands[-1]):
+                                    await message.channel.send('Cannot remove more than the party owns')
+                                else:
+                                    loot_df.loc[item_name, 'quantity'] -= int(commands[-1])
+                            else:
+                                loot_df.loc[item_name, 'quantity'] -= 1
+                            if loot_df.loc[item_name, 'quantity'] == 0:
+                                loot_df.drop(index=item_name, inplace=True)
+                        loot_df.to_csv('loot.txt')
+                        await message.channel.send(f'✅ - Successfully removed {"all of" if remove_all else commands[-1] if quantity_specified else "one"} {item_name}')
+                    else:
+                        await message.channel.send('Item not in registry')
+
+                elif reaction.emoji == '👎':
+
+                    await message.channel.send(f'{item_name} not removed')
+
+
+
+
         # elif message.content.startswith('$register'):
         #     _, partynumber = message.content.split(' ')
         #     party_members_dict = {}
@@ -339,5 +473,6 @@ async def on_message(message):
     if 'fireballllll' in message.content.casefold():
         await message.channel.send(
             'https://media1.tenor.com/images/36798911240cea9497b874122c7f559f/tenor.gif?itemid=18958548')
+
 
 client.run(TOKEN)
