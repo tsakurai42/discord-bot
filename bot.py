@@ -8,7 +8,9 @@ from random import randint
 from dotenv import load_dotenv
 from datetime import date, timedelta
 
-client = discord.Client()
+intents = discord.Intents.default()
+
+client = discord.Client(intents=intents)
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
 
@@ -21,7 +23,7 @@ playerconversion = {
     810158366583291934: 'dm'
 }
 
-trusted_editors = [130879737437487105,132956251993800705]
+trusted_editors = [130879737437487105, 132956251993800705]
 
 partymembers = ['kali', 'ix', "il'kesh", 'ekko', 'glob']
 
@@ -47,7 +49,6 @@ def save_party_gold():
     gold_df = gold_df.round(2)
     gold_df.fillna(0, inplace=True)
     gold_df.to_csv('partygold.txt')
-    gold_df.to_csv('partygold.csv')
     return gold_df
 
 
@@ -58,7 +59,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if client.user == 'cherrybot#1685' and message.channel.id == 833443954359271495:  # if real client and in testing private channel, don't do anything. otherwise (real bot in real channel or test bot in private channel) it will work
+    if client.user.id == 824502265783386173 and message.channel.id == 833443954359271495:  # if real client and in testing private channel, don't do anything. otherwise (real bot in real channel or test bot in private channel) it will work
         return
     if message.author == client.user:
         return
@@ -70,12 +71,12 @@ async def on_message(message):
                            reaction.message == reply_msg)
 
         # if message.content.startswith('$test'):
-            # id = 130879737437487105  # User Id
-            # member = client.get_guild(616442390734962709).get_member(id)
-            # print(member)
+        # id = 130879737437487105  # User Id
+        # member = client.get_guild(616442390734962709).get_member(id)
+        # print(member)
 
-            # namename = await client.fetch_user(int('130879737437487105'))
-            # print(namename)
+        # namename = await client.fetch_user(int('130879737437487105'))
+        # print(namename)
 
         # DICEROLLS
         if message.content.startswith('$roll'):
@@ -120,7 +121,7 @@ async def on_message(message):
                 if str(message.author.nick) in afk_list:
                     afk_list.remove(str(message.author.nick))
                     if not afk_list:
-                        afk_df.drop(index=parsed_cal_date,inplace=True)
+                        afk_df.drop(index=parsed_cal_date, inplace=True)
                     else:
                         afk_df.loc[parsed_cal_date, 'afk'] = ','.join(afk_list)
                     await message.channel.send(f'Canceled your afk for {parsed_cal_date}')
@@ -137,24 +138,24 @@ async def on_message(message):
                         await message.channel.send(f'You are already marked as gone that day ({parsed_cal_date}).')
                         return
                     else:
-                        afk_df.loc[parsed_cal_date,'afk'] += f',{message.author.nick}'
+                        afk_df.loc[parsed_cal_date, 'afk'] += f',{message.author.nick}'
                 else:
-                    afk_df.loc[parsed_cal_date,'afk'] = message.author.nick
+                    afk_df.loc[parsed_cal_date, 'afk'] = message.author.nick
                 await message.channel.send(f'Ok, you are gone on {parsed_cal_date}')
                 afk_df.to_csv('afk.txt')
             elif message.content.startswith('$afklist'):
                 saturday = date.today() + timedelta((5 - date.today().weekday()) % 7)
                 month_of_afks = []
-                for i in range(0,28,7):
-                    if (saturday+timedelta(i)).strftime('%Y-%m-%d') in afk_df.index:
-                        month_of_afks.append((saturday+timedelta(i)).strftime('%Y-%m-%d'))
+                for i in range(0, 28, 7):
+                    if (saturday + timedelta(i)).strftime('%Y-%m-%d') in afk_df.index:
+                        month_of_afks.append((saturday + timedelta(i)).strftime('%Y-%m-%d'))
                 if month_of_afks:
                     await message.channel.send(f'**AFK list for the next month**\n'
                                                f'```{afk_df.loc[month_of_afks]}```')
 
 
         elif message.content.startswith('$whendoweplaynext'):
-            afk_df = pd.read_csv('afk.txt', index_col=0, dtype={'afk':str})
+            afk_df = pd.read_csv('afk.txt', index_col=0, dtype={'afk': str})
             saturday = date.today() + timedelta((5 - date.today().weekday()) % 7)
             found_date = False
             while not found_date:
@@ -167,15 +168,16 @@ async def on_message(message):
                     if len(afk_list) > 1:
                         await message.channel.send(f'More than 1 person is gone on {saturday} ({",".join(afk_list)})')
                         saturday = saturday + timedelta(7)
-                    elif '810158366583291934' in afk_df.loc[saturday.strftime('%Y-%m-%d'),'afk']:
+                    elif '810158366583291934' in afk_df.loc[saturday.strftime('%Y-%m-%d'), 'afk']:
                         await message.channel.send(f'Hard to play without a DM!')
                         saturday = saturday + timedelta(7)
                     else:
                         found_date = True
                 else:
                     found_date = True
-            await message.channel.send(f'Next session should be on {saturday}, {(saturday - date.today()).days} days away\n'
-                                       f'(not a guarantee this is accurate)')
+            await message.channel.send(
+                f'Next session should be on {saturday}, {(saturday - date.today()).days} days away\n'
+                f'(not a guarantee this is accurate)')
 
         elif message.content.startswith('$cal'):
             calendar_command = message.content.split()[1]
@@ -246,7 +248,7 @@ async def on_message(message):
                     await reply_msg.add_reaction('👎')
 
                     try:
-                        reaction, user = await client.wait_for('reaction_add', timeout=30.0, check=reaction_check)
+                        reaction, user = await client.wait_for('reaction_add', timeout=15.0, check=reaction_check)
                     except asyncio.TimeoutError:
                         await message.channel.send('❌ - Sorry, request timed out')
                     else:
@@ -295,7 +297,7 @@ async def on_message(message):
                     await reply_msg.add_reaction('👎')
 
                     try:
-                        reaction, user = await client.wait_for('reaction_add', timeout=30.0, check=reaction_check)
+                        reaction, user = await client.wait_for('reaction_add', timeout=15.0, check=reaction_check)
                     except asyncio.TimeoutError:
                         await message.channel.send('❌ - Sorry, request timed out')
                     else:
@@ -334,7 +336,7 @@ async def on_message(message):
                         await reply_msg.add_reaction('👎')
 
                         try:
-                            reaction, user = await client.wait_for('reaction_add', timeout=30.0, check=reaction_check)
+                            reaction, user = await client.wait_for('reaction_add', timeout=15.0, check=reaction_check)
                         except asyncio.TimeoutError:
                             await message.channel.send('❌ - Sorry, request timed out')
                         else:
@@ -375,8 +377,12 @@ async def on_message(message):
                 else:
                     await message.channel.send(f'```{result_gold_df.drop(columns="user")}```')
 
+            elif gold_command.startswith('backup'):
+                gold_df.to_csv(f'partygold - backup {date.today().strftime("%Y-%m-%d")}.txt')
+
+
         elif message.content.startswith('$lootstatus'):
-            loot_df = pd.read_csv('loot.txt',index_col='item',dtype={'quantity':int})
+            loot_df = pd.read_csv('loot.txt', index_col='item', dtype={'quantity': int})
             loot_df.sort_index(inplace=True)
             await message.channel.send(f'https://i.imgur.com/9bXloIu.mp4')
             await message.channel.send(f'```{loot_df}```')
@@ -384,44 +390,48 @@ async def on_message(message):
         elif message.content.startswith('$lootadd'):
             if message.author.id not in trusted_editors:
                 return
-            loot_df = pd.read_csv('loot.txt',index_col='item')
+            loot_df = pd.read_csv('loot.txt', index_col='item')
             commands = message.content.split()
-            if commands[-1] == 'all':   #no reason to loot add "all" of anything, so assume it's a mistake and pop it off
+            if commands[-1] == 'all':  # no reason to loot add "all" of anything, so assume it's a mistake and pop it off
                 commands.pop()
+
             if commands[-1].isnumeric():
                 quantity_specified = True
-                item_name = ' '.join(commands[1:-1])
+                quantity_to_add = int(commands.pop())
             else:
                 quantity_specified = False
-                item_name = ' '.join(commands[1:])
+            item_name = ' '.join(commands[1:])
 
             if item_name in loot_df.index:
-                if quantity_specified:
-                    loot_df.loc[item_name,'quantity'] += int(commands[-1])
-                else:
-                    loot_df.loc[item_name, 'quantity'] += 1
+                loot_df.loc[item_name, 'quantity'] += quantity_to_add if quantity_specified else 1
+                # if quantity_specified:
+                #     loot_df.loc[item_name,'quantity'] += int(commands[-1])
+                # else:
+                #     loot_df.loc[item_name, 'quantity'] += 1
+
             else:
-                if quantity_specified:
-                    loot_df.loc[item_name,'quantity'] = int(commands[-1])
-                else:
-                    loot_df.loc[item_name,'quantity'] = 1
+                loot_df.loc[item_name, 'quantity'] = quantity_to_add if quantity_specified else 1
+                # if quantity_specified:
+                #     loot_df.loc[item_name,'quantity'] = int(commands[-1])
+                # else:
+                #     loot_df.loc[item_name,'quantity'] = 1
             loot_df.to_csv('loot.txt')
 
         elif message.content.startswith('$lootremove'):
             if message.author.id not in trusted_editors:
                 return
-            loot_df = pd.read_csv('loot.txt',index_col='item')
+            loot_df = pd.read_csv('loot.txt', index_col='item')
             commands = message.content.split()
             remove_all = False
             if commands[-1] == 'all':
                 remove_all = True
-                item_name = ' '.join(commands[1:-1])
+                commands.pop()
             elif commands[-1].isnumeric():
                 quantity_specified = True
-                item_name = ' '.join(commands[1:-1])
+                quantity_to_remove = int(commands.pop())
             else:
                 quantity_specified = False
-                item_name = ' '.join(commands[1:])
+            item_name = ' '.join(commands[1:])
 
             message_reply = f'Removing {"all of" if remove_all else commands[-1] if quantity_specified else "one"} {item_name}' \
                             f'\nClick 👍 to confirm, 👎 to cancel'
@@ -430,7 +440,7 @@ async def on_message(message):
             await reply_msg.add_reaction('👎')
 
             try:
-                reaction, user = await client.wait_for('reaction_add', timeout=30.0, check=reaction_check)
+                reaction, user = await client.wait_for('reaction_add', timeout=15.0, check=reaction_check)
             except asyncio.TimeoutError:
                 await message.channel.send('❌ - Sorry, request timed out')
             else:
@@ -440,25 +450,21 @@ async def on_message(message):
                             loot_df.drop(index=item_name, inplace=True)
                         else:
                             if quantity_specified:
-                                if loot_df.loc[item_name, 'quantity'] < int(commands[-1]):
+                                if loot_df.loc[item_name, 'quantity'] < quantity_to_remove:
                                     await message.channel.send('Cannot remove more than the party owns')
                                 else:
-                                    loot_df.loc[item_name, 'quantity'] -= int(commands[-1])
+                                    loot_df.loc[item_name, 'quantity'] -= quantity_to_remove
                             else:
                                 loot_df.loc[item_name, 'quantity'] -= 1
                             if loot_df.loc[item_name, 'quantity'] == 0:
                                 loot_df.drop(index=item_name, inplace=True)
                         loot_df.to_csv('loot.txt')
-                        await message.channel.send(f'✅ - Successfully removed {"all of" if remove_all else commands[-1] if quantity_specified else "one"} {item_name}')
+                        await message.channel.send(
+                            f'✅ - Successfully removed {"all of" if remove_all else commands[-1] if quantity_specified else "one"} {item_name}')
                     else:
                         await message.channel.send('Item not in registry')
-
                 elif reaction.emoji == '👎':
-
                     await message.channel.send(f'{item_name} not removed')
-
-
-
 
         # elif message.content.startswith('$register'):
         #     _, partynumber = message.content.split(' ')
