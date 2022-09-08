@@ -7,11 +7,12 @@ from dateutil.parser import parse
 from random import randint
 from dotenv import load_dotenv
 from datetime import date, timedelta
-
-import bs4 as BeautifulSoup
+import json
+import bs4 as bs
 from splinter import Browser
 import time
 from requests import get
+import requests
 
 intents = discord.Intents.default()
 
@@ -63,8 +64,8 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if client.user.id == 824502265783386173 and message.channel.id == 833443954359271495:  # if real client and in testing private channel, don't do anything. otherwise (real bot in real channel or test bot in private channel) it will work
-        return
+    # if client.user.id == 824502265783386173 and message.channel.id == 833443954359271495:  # if real client and in testing private channel, don't do anything. otherwise (real bot in real channel or test bot in private channel) it will work
+    #     return
     if message.author == client.user:
         return
     if message.content.startswith('$'):
@@ -83,25 +84,40 @@ async def on_message(message):
 
         # DICEROLLS
         if message.content.startswith('$roll'):
-            dice_chosen = message.content.split(' ')[1]
-            if dice_chosen == 'stats':
+            dice_chosen = message.content[6:]#message.content.split(' ')[1]
+            if 'stats' in dice_chosen:
                 stats_rolled_alldice = []
                 stats_rolled_array = []
                 message_out = ''
-                for i in range(6):
-                    rolls = [randint(1, 6) for i in range(4)]
-                    stats_rolled_alldice.append(rolls.copy())
-                    rolls.remove(min(rolls))
-                    stats_rolled_array.append(sum(rolls))
-                    message_out += f'{i + 1}: {stats_rolled_array[i]} - {stats_rolled_alldice[i]}\n'
-                message_out = message_out[:-1]
+                if '!reroll' not in dice_chosen:
+                    for i in range(6):
+                        rolls = [randint(1, 6) for i in range(4)]
+                        stats_rolled_alldice.append(rolls.copy())
+                        rolls.remove(min(rolls))
+                        stats_rolled_array.append(sum(rolls))
+                        message_out += f'{i + 1}: {stats_rolled_array[i]} - {stats_rolled_alldice[i]}\n'
+                    message_out = message_out[:-1]
+                else:
+                    for i in range(6):
+                        rolls = [randint(1, 6) for i in range(4)]
+                        num_ones = rolls.count(1)
+                        for j in range(num_ones):
+                            rolls.append(randint(1,6))
+                        stats_rolled_alldice.append(rolls.copy())
+                        for j in range(num_ones+1):
+                            rolls.remove(min(rolls))
+                        stats_rolled_array.append(sum(rolls))
+                        print(rolls)
+                        print(num_ones)
+                        add_to_message = ''
+                        if num_ones != 0:
+                            add_to_message = f' with {num_ones} 1s rerolled'
+                        message_out += f'{i + 1}: {stats_rolled_array[i]} - {stats_rolled_alldice[i]}{add_to_message}\n'
+                    message_out = message_out[:-1]
                 await message.channel.send(f'4d6k3 rolled stats: \n`{message_out}`')
-
             else:
                 dice_roll = list(map(int, dice_chosen.split('d')))
                 rolls = [randint(1, dice_roll[1]) for i in range(dice_roll[0])]
-                # for i in range(dice_roll[0]):
-                #     rolls.append(randint(1,dice_roll[1]))
                 dice_total = sum(rolls)
                 await message.channel.send(f'Rolling {dice_chosen}: `{dice_total} ( {rolls} )`')
         #
@@ -486,23 +502,43 @@ async def on_message(message):
         await message.channel.send('https://gfycat.com/tamevariablebaiji')
     if 'tiktok.com/' in message.content.casefold() and not message.embeds:
         # print(message.content)
-        url = re.search("(?P<url>https?://[^\s]+)", message.content).group("url")
-        print('1')
-        browser = Browser('firefox', headless=True)
-        print('1.5')
-        browser.visit(url)
-        print('2')
-        soup = BeautifulSoup.BeautifulSoup(browser.html, 'html.parser')
-        vid_url = soup.find('video')['src']
+        url = re.search("(?P<url>https?://[^\s]+)", message.content).group("url").split('?')[0]
+        # print(url)
+        # browser = Browser('firefox', headless=True)
+        # browser.visit(url)
+        # soup = BeautifulSoup.BeautifulSoup(browser.html, 'html.parser')
+        # vid_url = soup.find('video')['src']
+
         # print(vid_url)
-        browser.quit()
-        print('3')
-        # req = get(vid_url)
-        # file = open(f'file.mp4', 'wb')
-        # for chunk in req.iter_content(1000000):
-        #     file.write(chunk)
-        # file.close()
-        # await message.channel.send(file=discord.File('file.mp4'))
-        # os.remove('file.mp4')
-        await message.channel.send(vid_url)
+        # browser.quit()
+        # filename = url.split('?')[0].split('www.')[1].replace('/','')
+        from varz import cookies, headers, params
+
+        raw_html = requests.get(url, params=params,
+                                cookies=cookies, headers=headers)
+
+        # raw_html = get(url)
+        soup = bs.BeautifulSoup(raw_html.text, 'html.parser')
+        # print(raw_html.text)
+        script_soup = soup.find('script', {'id': 'SIGI_STATE'})
+        # print(script_soup)
+        soup_json = json.loads(script_soup.string)
+        tiktok_url = soup_json['SEO']['metaParams']['canonicalHref'][12:]
+        # print(tiktok_url)
+        tiktok_id = tiktok_url.split('/')[-1]
+        filename = tiktok_url.replace('/', '')
+        # print(tiktok_id)
+        vid_url = soup_json['ItemModule'][tiktok_id]['video']['downloadAddr']
+
+        req = get(vid_url)
+        file = open(f'{filename}.mp4', 'wb')
+        for chunk in req.iter_content(1000000):
+            file.write(chunk)
+        file.close()
+        if os.stat(f'{filename}.mp4').st_size > 8000000:
+            await message.channel.send(vid_url)
+        else:
+            await message.channel.send(file=discord.File(f'{filename}.mp4'))
+        os.remove(f'{filename}.mp4')
+        # await message.channel.send(vid_url)
 client.run(TOKEN)
