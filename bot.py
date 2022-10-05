@@ -6,7 +6,10 @@ import re
 from dateutil.parser import parse
 from random import randint
 from dotenv import load_dotenv
-from datetime import date, timedelta
+# from datetime import date, timedelta
+from datetime import datetime
+import pytz
+from dateutil import tz
 import json
 import bs4 as bs
 from splinter import Browser
@@ -19,6 +22,7 @@ intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
+
 
 # playerconversion = {
 #     130879737437487105: 'kali',
@@ -62,6 +66,7 @@ TOKEN = os.getenv('TOKEN')
 async def on_ready():
     print(f'We have logged in as {client.user}')
 
+
 @client.event
 async def on_message(message):
     # if client.user.id == 824502265783386173 and message.channel.id == 833443954359271495:  # if real client and in testing private channel, don't do anything. otherwise (real bot in real channel or test bot in private channel) it will work
@@ -84,7 +89,7 @@ async def on_message(message):
 
         # DICEROLLS
         if message.content.startswith('$roll'):
-            dice_chosen = message.content[6:]#message.content.split(' ')[1]
+            dice_chosen = message.content[6:]  # message.content.split(' ')[1]
             if 'stats' in dice_chosen:
                 stats_rolled_alldice = []
                 stats_rolled_array = []
@@ -102,9 +107,9 @@ async def on_message(message):
                         rolls = [randint(1, 6) for i in range(4)]
                         num_ones = rolls.count(1)
                         for j in range(num_ones):
-                            rolls.append(randint(1,6))
+                            rolls.append(randint(1, 6))
                         stats_rolled_alldice.append(rolls.copy())
-                        for j in range(num_ones+1):
+                        for j in range(num_ones + 1):
                             rolls.remove(min(rolls))
                         stats_rolled_array.append(sum(rolls))
                         print(rolls)
@@ -490,6 +495,11 @@ async def on_message(message):
         # #     party_members_dict = {}
         # #     party_members_dict[message.author.id] = partynumber
         # #     party_members_dict
+        elif message.content.startswith('$whattimeisit'):
+            if client.user.id == 236875762559352835:
+                await message.channel.send(f"Currently {datetime.now(pytz.timezone('America/Denver')).time().replace(microsecond=0)} in Denver")
+            else:
+                await message.channel.send(f"Currently {datetime.now(pytz.timezone('Australia/Sydney')).time().replace(microsecond=0)} in Sydney")
 
     if 'this is america' in message.content.casefold():
         await message.channel.send('https://www.youtube.com/watch?v=YUWq_aBiE_s')
@@ -498,7 +508,9 @@ async def on_message(message):
     if 'fireballllll' in message.content.casefold():
         await message.channel.send(
             'https://media1.tenor.com/images/36798911240cea9497b874122c7f559f/tenor.gif?itemid=18958548')
-    if any(terfs in message.content.casefold() for terfs in ['rowling','harry potter','chappelle','chapelle',' atwood','linehan','gervais']):
+    if any(terfs in message.content.casefold() for terfs in
+           ['rowling', 'harry potter', 'chappelle', 'chapelle', ' atwood', 'linehan', 'gervais', 'macy gray',
+            'bette midler']):
         await message.channel.send('https://gfycat.com/tamevariablebaiji')
     if 'tiktok.com/' in message.content.casefold() and not message.embeds:
         # print(message.content)
@@ -541,4 +553,25 @@ async def on_message(message):
             await message.channel.send(file=discord.File(f'{filename}.mp4'))
         os.remove(f'{filename}.mp4')
         # await message.channel.send(vid_url)
+    # if message.embeds:
+    #     print('embed in this message')
+    if message.content.startswith('$delete'):
+        msg_id = message.content.split(' ')
+        server_id = message.guild
+        channel_id = message.channel
+        try:
+            old_msg_1 = await channel_id.fetch_message(int(msg_id[1]))
+            if old_msg_1.author == message.author:
+                messages_list = [message async for message in channel_id.history(limit=1, after=discord.Object(id=int(msg_id[1])))]
+                print(messages_list[0])
+                print(messages_list[0].author.id)
+                if messages_list[0].author.id == 824502265783386173:
+                    await channel_id.delete_messages([messages_list[0]])
+                # await channel_id.delete_messages([discord.Object(id=int(msg_id[2]))])
+                # old_msg_2 = await channel_id.fetch_message(int(msg_id[2]))
+                # await old_msg_2.delete()
+            else:
+                print('trying to delete someone else')
+        except:
+               print('wrong parameter given')
 client.run(TOKEN)
